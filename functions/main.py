@@ -289,8 +289,7 @@ def create_keyboard(user: User) -> telebot.types.ReplyKeyboardMarkup:
     return keyboard
 
 
-def start(message: telebot.types.Message) -> None:
-    user = User.get_or_create_from_message_user(message.from_user)
+def start(user: User, message: telebot.types.Message) -> None:
     bot.send_message(
         message.chat.id,
         f"喂，{user.first_name} 師傅！搵食工具準備好未？\n開工 /start_shift\n收工 "
@@ -299,8 +298,7 @@ def start(message: telebot.types.Message) -> None:
     )
 
 
-def start_shift(message: telebot.types.Message) -> None:
-    user = User.get_or_create_from_message_user(message.from_user)
+def start_shift(user: User, message: telebot.types.Message) -> None:
 
     # Check if the user already has an active shift
     if user.active_shift:
@@ -328,8 +326,7 @@ def start_shift(message: telebot.types.Message) -> None:
     )
 
 
-def end_shift(message: telebot.types.Message):
-    user = User.get_or_create_from_message_user(message.from_user)
+def end_shift(user: User, message: telebot.types.Message):
 
     if user.active_trip:
         bot.send_message(
@@ -376,12 +373,11 @@ def end_shift(message: telebot.types.Message):
     )
 
 
-def handle_location(message: telebot.types.Message) -> None:
+def handle_location(user: User, message: telebot.types.Message) -> None:
     latitude = message.location.latitude
     longitude = message.location.longitude
     logging.warning(f"Latitude {latitude} Longitude {longitude}")
     location = get_location(latitude, longitude)
-    user = User.get_or_create_from_message_user(message.from_user)
 
     if user.active_shift is None:
         bot.send_message(
@@ -424,9 +420,9 @@ def handle_location(message: telebot.types.Message) -> None:
 
 
 def handle_custom_location(
+    user: User,
     message: telebot.types.Message,
 ) -> None:
-    user = User.get_or_create_from_message_user(message.from_user)
 
     if user.active_shift is None:
         bot.send_message(
@@ -567,10 +563,9 @@ def process_fare_input(
         )
 
 
-def get_trips(message: telebot.types.Message) -> None:
+def get_trips(user: User, message: telebot.types.Message) -> None:
 
     hk_tz = pytz.timezone("Asia/Hong_Kong")
-    user = User.get_or_create_from_message_user(message.from_user)
     trips = user.get_all_trips()
 
     if not trips:
@@ -634,29 +629,29 @@ def handle_telegram_update(request):
             logging.info(
                 f"Location received from user {user.user_id} {user.first_name}"
             )
-            handle_location(update.message)
+            handle_location(user=user, message=update.message)
         elif update.message.content_type == "text":
             match update.message.text:
                 case "/start":
                     logging.info(
                         f"`/start` received from user {user.user_id} {user.first_name}"
                     )
-                    start(update.message)
+                    start(user=user, message=update.message)
                 case "/start_shift":
                     logging.info(
                         f"`/start_shift` received from user {user.user_id} {user.first_name}"
                     )
-                    start_shift(update.message)
+                    start_shift(user=user, message=update.message)
                 case "/end_shift":
                     logging.info(
                         f"`/end_shift` received from user {user.user_id} {user.first_name}"
                     )
-                    end_shift(update.message)
+                    end_shift(user=user, message=update.message)
                 case "/get_trips":
                     logging.info(
                         f"`/get_trips` received from user {user.user_id} {user.first_name}"
                     )
-                    get_trips(update.message)
+                    get_trips(user=user, message=update.message)
                 case _:
                     logging.info(
                         f"Text received from user {user.user_id} {user.first_name}"
@@ -664,7 +659,7 @@ def handle_telegram_update(request):
                     logging.info(f"Await location input: {user.await_location_input}")
                     logging.info(f"Await fare input: {user.await_fare_input}")
                     if user.await_location_input:
-                        handle_custom_location(message=update.message)
+                        handle_custom_location(user=user, message=update.message)
                     elif user.await_fare_input:
                         active_shift = Shift.get_shift_by_id(user.active_shift)
                         active_trip = Trip.get_trip_by_id(user.active_trip)
@@ -674,7 +669,7 @@ def handle_telegram_update(request):
                             or (active_trip.end_time is None)
                         ):
                             process_fare_input(
-                                update.message,
+                                message=update.message,
                                 user=user,
                                 shift=active_shift,
                                 trip=active_trip,
