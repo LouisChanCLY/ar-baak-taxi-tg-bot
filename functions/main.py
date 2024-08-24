@@ -42,6 +42,7 @@ db = firestore.Client()
 # Telegram bot setup
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
+
 # Set bot commands
 commands = [
     telebot.types.BotCommand("/start_shift", "開工"),
@@ -239,7 +240,7 @@ def get_location(lat: float, lon: float) -> Optional[str]:
         response = httpx.get(
             url, params={"x": northing, "y": easting, "lang": "zh"}, timeout=10
         )
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         data = response.json()
         address = data["results"][0]
         match address["type"]:
@@ -363,13 +364,11 @@ def end_shift(message: telebot.types.Message):
     user.active_shift = None
     user.update_in_firestore()
 
-    # Send the shift summary to the user
     shift_summary = f"""
 收工啦，辛苦晒！\n今日總共做咗 {shift.total_trips} 單生意，\n埋單總數 {shift.total_fare:.2f} 蚊。\n唞夠聽日再嚟過啦！
     """
     bot.send_message(message.chat.id, shift_summary)
 
-    # Update the keyboard to only have the "Start Shift" button
     bot.send_message(
         message.chat.id,
         "開工 /start_shift\n收工 /end_shift\n睇返之前啲job /get_trips",
@@ -426,7 +425,7 @@ def handle_location(message: telebot.types.Message) -> None:
 
 def handle_custom_location(
     message: telebot.types.Message,
-):
+) -> None:
     user = User.get_or_create_from_message_user(message.from_user)
 
     if user.active_shift is None:
@@ -461,7 +460,7 @@ def handle_start_trip(
     location: str,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
-):
+) -> None:
     """Handles the logic for starting a new trip."""
     trip = Trip(
         user_id=str(user.user_id),
@@ -533,7 +532,7 @@ def handle_end_trip(
 
 def process_fare_input(
     message: telebot.types.Message, user: User, shift: Shift, trip: Trip
-):
+) -> None:
     """Processes the fare input from the user and updates Firestore."""
 
     try:
@@ -619,10 +618,8 @@ def get_trips(message: telebot.types.Message) -> None:
         )
 
     # Send the CSV file
-    csv_data.seek(0)  # Reset the file pointer to the beginning
-    file = telebot.types.InputFile(
-        csv_data, file_name="trips.csv"
-    )  # Create InputFile object with filename
+    csv_data.seek(0)
+    file = telebot.types.InputFile(csv_data, file_name="trips.csv")
     bot.send_document(message.chat.id, file)
 
 
