@@ -550,7 +550,10 @@ def process_fare_input(
         user.await_fare_input = False
         user.update_in_firestore()
 
-        bot.send_message(message.chat.id, f"收到，{fare:.2f} 蚊！繼續努力搵食啦！")
+        bot.send_message(
+            message.chat.id,
+            f"收到，{fare:.2f} 蚊！而家做左{shift.total_trips:,g}單 ${shift.total_fare:,.2f} 生意， 繼續努力！",
+        )
 
         bot.send_message(
             message.chat.id,
