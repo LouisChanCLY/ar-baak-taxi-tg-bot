@@ -239,7 +239,11 @@ def get_osm_location(lat: float, lon: float) -> Optional[str]:
         response = httpx.get(
             url,
             params={"lat": lat, "lon": lon, "format": "json"},
-            headers={"Accept-Language": "zh"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/116.0.5845.179 Safari/537.36",
+                "Accept-Language": "zh",
+            },
         )
         response.raise_for_status()
         data = response.json()
