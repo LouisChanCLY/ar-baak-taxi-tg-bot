@@ -494,7 +494,7 @@ def handle_end_trip(
     if user.active_trip is None:
         bot.send_message(
             message.chat.id,
-            "你都未開過工，邊有得收工呀？用 /start_shift 開工先啦",
+            "用 /start_shift 開工先啦",
         )
         return
 
