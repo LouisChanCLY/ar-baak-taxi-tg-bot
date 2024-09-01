@@ -240,7 +240,8 @@ def get_osm_location(lat: float, lon: float) -> Optional[str]:
             url,
             params={"lat": lat, "lon": lon, "format": "json"},
             headers={
-                "User-Agent": "ArBaakTaxi v0.0",
+                "User-Agent": "ArBaakTaxi/0.0",
+                "Referrer": "https://arbaak.com",
                 "Accept-Language": "zh",
             },
         )
