@@ -16,15 +16,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.12"
+          python-version: "3.9"
 
       - name: Install dependencies
         run: pip install -r telegram-bot/requirements.txt
@@ -35,9 +33,11 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "ENV=prod" >> $GITHUB_ENV
             echo "BOT_TOKEN=${{ secrets.PROD_BOT_TOKEN }}" >> $GITHUB_ENV
+            echo "FUNCTION_NAME=telegramBotProd" >> $GITHUB_ENV
           else
             echo "ENV=dev" >> $GITHUB_ENV
             echo "BOT_TOKEN=${{ secrets.DEV_BOT_TOKEN }}" >> $GITHUB_ENV
+            echo "FUNCTION_NAME=telegramBotDev" >> $GITHUB_ENV
           fi
 
       - name: Authenticate to Google Cloud
@@ -50,7 +50,7 @@ jobs:
 
       - name: Deploy to Google Cloud Functions
         run: |
-          gcloud functions deploy telegramBot${{ env.ENV | title }} \
+          gcloud functions deploy ${{ env.FUNCTION_NAME }} \
             --runtime python39 \
             --trigger-http \
             --allow-unauthenticated \
@@ -58,3 +58,12 @@ jobs:
             --set-env-vars BOT_TOKEN=${{ env.BOT_TOKEN }} \
             --region ${{ secrets.GCP_REGION }} \
             --source telegram-bot/
+
+      - name: Remove existing webhook
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ env.BOT_TOKEN }}/deleteWebhook
+
+      - name: Reconnect webhook
+        run: |
+          WEBHOOK_URL="https://${{ secrets.GCP_REGION }}-${{ secrets.GCP_PROJECT_ID }}.cloudfunctions.net/${{ env.FUNCTION_NAME }}"
+          curl -s -X POST https://api.telegram.org/bot${{ env.BOT_TOKEN }}/setWebhook -d "url=${WEBHOOK_URL}"
