@@ -36,7 +36,8 @@ flask_logger.addHandler(gcloud_logging_handler)
 app = Flask(__name__)
 
 # Initialize Firestore
-db = firestore.Client()
+DB_NAME = f"taxi-{os.environ.get('ENV', 'dev')}"
+db = firestore.Client(database=DB_NAME)
 
 
 # Telegram bot setup
