@@ -36,7 +36,12 @@ flask_logger.addHandler(gcloud_logging_handler)
 app = Flask(__name__)
 
 # Initialize Firestore
-db = firestore.Client()
+DB_NAME = f"taxi-{os.environ.get('ENV', 'dev')}"
+db = firestore.Client(database=DB_NAME)
+
+USER_COLLECTION_NAME = "users"
+TRIP_COLLECTION_NAME = "trips"
+SHIFT_COLLECTION_NAME = "shifts"
 
 
 # Telegram bot setup
@@ -53,10 +58,6 @@ bot.set_my_commands(commands)
 
 # Coordinate transformer
 transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:2326")
-
-USER_COLLECTION_NAME = "taxi-users"
-TRIP_COLLECTION_NAME = "taxi-trips"
-SHIFT_COLLECTION_NAME = "taxi-shifts"
 
 
 class Trip(BaseModel):
@@ -493,7 +494,7 @@ def handle_end_trip(
     if user.active_trip is None:
         bot.send_message(
             message.chat.id,
-            "你都未開過工，邊有得收工呀？用 /start_shift 開工先啦",
+            "用 /start_shift 開工先啦",
         )
         return
 
@@ -549,7 +550,10 @@ def process_fare_input(
         user.await_fare_input = False
         user.update_in_firestore()
 
-        bot.send_message(message.chat.id, f"收到，{fare:.2f} 蚊！繼續努力搵食啦！")
+        bot.send_message(
+            message.chat.id,
+            f"收到，{fare:.2f} 蚊！而家做左{shift.total_trips:,g}單 ${shift.total_fare:,.2f} 生意， 繼續努力！",
+        )
 
         bot.send_message(
             message.chat.id,

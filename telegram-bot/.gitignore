@@ -1,0 +1,3 @@
+*.local
+credentials.json
+venv
