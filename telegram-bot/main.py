@@ -232,7 +232,38 @@ class User(BaseModel):
         return [_ for _ in trips if _ is not None]
 
 
-def get_location(lat: float, lon: float) -> Optional[str]:
+def get_osm_location(lat: float, lon: float) -> Optional[str]:
+    """Get the address from latitude and longitude using OSM Nominatim."""
+    try:
+        url = "https://nominatim.openstreetmap.org/reverse"
+        response = httpx.get(
+            url,
+            params={"lat": lat, "lon": lon, "format": "json"},
+            headers={
+                "User-Agent": "ArBaakTaxi/0.0",
+                "Referrer": "https://arbaak.com",
+                "Accept-Language": "zh",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        logging.warning(data)
+        address = data.get("address", {})
+        return " ".join(
+            [
+                address.get("road", ""),
+                address.get("house_number", ""),
+                address.get("village", ""),
+                address.get("building", ""),
+            ]
+        ).strip()
+
+    except httpx.HTTPStatusError as err:
+        logging.error(f"Error fetching location from OSM: {err}")
+        return None
+
+
+def get_hk_geodata_location(lat: float, lon: float) -> Optional[str]:
     """Gets the address from latitude and longitude using the HK GeoData API."""
     easting, northing = transformer.transform(lat, lon)
     logging.warning(f"Easting {easting}, Northing {northing}")
@@ -265,7 +296,7 @@ def get_location(lat: float, lon: float) -> Optional[str]:
         return None
 
     except httpx.HTTPStatusError as err:
-        logging.error(f"Error fetching location: {err}")  # Log the error for debugging
+        logging.error(f"Error fetching location from HK GeoData: {err}")
         return None
     except (json.decoder.JSONDecodeError, KeyError, IndexError) as err:
         logging.error(f"Error parsing location response: {err}")
@@ -378,7 +409,6 @@ def handle_location(user: User, message: telebot.types.Message) -> None:
     latitude = message.location.latitude
     longitude = message.location.longitude
     logging.warning(f"Latitude {latitude} Longitude {longitude}")
-    location = get_location(latitude, longitude)
 
     if user.active_shift is None:
         bot.send_message(
@@ -387,6 +417,8 @@ def handle_location(user: User, message: telebot.types.Message) -> None:
         return
 
     shift = Shift.get_shift_by_id(user.active_shift)
+
+    location = get_osm_location(latitude, longitude)
 
     if not location:
         logging.warning(
