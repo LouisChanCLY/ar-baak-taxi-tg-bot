@@ -48,12 +48,13 @@ jobs:
       - name: Deploy to Google Cloud Functions
         run: |
           gcloud functions deploy ${{ env.FUNCTION_NAME }} \
-            --runtime python39 \
+            --runtime python312 \
             --trigger-http \
             --allow-unauthenticated \
-            --entry-point app \
+            --entry-point handle_telegram_update \
             --set-env-vars BOT_TOKEN=${{ env.BOT_TOKEN }} \
             --region ${{ secrets.GCP_REGION }} \
+            --gen2 \
             --source telegram-bot/
 
       - name: Remove existing webhook
