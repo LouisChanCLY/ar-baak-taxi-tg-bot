@@ -7,6 +7,12 @@ To use the telegram bot, you may have to share your location with the bot during
 pick up and drop off. The location detection service is provided by the Hong Kong
 GeoData Store under the Common Spatial Data Infrastructure Portal.
 
+## Reverse Geocoding
+
+When you use the bot, we will use OSM Nominatim to reverse geocode your location
+into a valid address in Hong Kong. This data & service is made available under the
+Open Database License (ODbL) attributed to [OpenStreetMap](openstreetmap.org/copyright).
+
 ## Commands
 
 - `/start`: Get started with the bot
