@@ -247,12 +247,14 @@ def get_osm_location(lat: float, lon: float) -> Optional[str]:
         )
         response.raise_for_status()
         data = response.json()
+        logging.warning(data)
+        address = data.get("address", {})
         return " ".join(
             [
-                data.get("road", ""),
-                data.get("house_number", ""),
-                data.get("village", ""),
-                data.get("building", ""),
+                address.get("road", ""),
+                address.get("house_number", ""),
+                address.get("village", ""),
+                address.get("building", ""),
             ]
         ).strip()
 
