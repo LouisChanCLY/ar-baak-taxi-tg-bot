@@ -39,6 +39,10 @@ app = Flask(__name__)
 DB_NAME = f"taxi-{os.environ.get('ENV', 'dev')}"
 db = firestore.Client(database=DB_NAME)
 
+USER_COLLECTION_NAME = "users"
+TRIP_COLLECTION_NAME = "trips"
+SHIFT_COLLECTION_NAME = "shifts"
+
 
 # Telegram bot setup
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -54,10 +58,6 @@ bot.set_my_commands(commands)
 
 # Coordinate transformer
 transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:2326")
-
-USER_COLLECTION_NAME = "taxi-users"
-TRIP_COLLECTION_NAME = "taxi-trips"
-SHIFT_COLLECTION_NAME = "taxi-shifts"
 
 
 class Trip(BaseModel):
