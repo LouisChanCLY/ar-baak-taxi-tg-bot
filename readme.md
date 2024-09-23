@@ -18,6 +18,7 @@ Open Database License (ODbL) attributed to [OpenStreetMap](openstreetmap.org/cop
 - `/start`: Get started with the bot
 - `/start_shift`: Start a new shift
 - `/end_shift`: End your current shift
-- `/get_trips`: Get an csv export of all your trips
+- `/get_trips`: Get an csv export of your recent trips
+- `/get_all_trips`: Get an csv export of all your trips
 
 <a href="https://www.buymeacoffee.com/louischan" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
