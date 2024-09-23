@@ -52,7 +52,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 commands = [
     telebot.types.BotCommand("/start_shift", "開工"),
     telebot.types.BotCommand("/end_shift", "收工"),
-    telebot.types.BotCommand("/get_trips", "睇返之前嘅記錄"),
+    telebot.types.BotCommand("/get_trips", "睇返最近嘅記錄"),
+    telebot.types.BotCommand("/get_all_trips", "睇晒全部記錄"),
 ]
 bot.set_my_commands(commands)
 
@@ -177,6 +178,7 @@ class User(BaseModel):
     total_fare: float = 0.0
     await_location_input: bool = False
     await_fare_input: bool = False
+    export_history: List[datetime] = []
 
     @classmethod
     def from_firestore_doc(cls, doc: DocumentSnapshot) -> Optional[Self]:
@@ -221,13 +223,19 @@ class User(BaseModel):
         trips = [Trip.from_firestore_doc(trip_doc) for trip_doc in trips_ref]
         return [_ for _ in trips if _ is not None]
 
-    def get_all_trips(self) -> List[Trip]:
+    def get_all_trips(self, skip_exported: bool = False) -> List[Trip]:
         """Retrieves all trips associated with this user from Firestore."""
-        trips_ref = (
-            db.collection(TRIP_COLLECTION_NAME)
-            .where(filter=FieldFilter("user_id", "==", str(self.user_id)))
-            .stream()
+        trips_ref = db.collection(TRIP_COLLECTION_NAME).where(
+            filter=FieldFilter("user_id", "==", str(self.user_id))
         )
+
+        if skip_exported and self.export_history:
+            trips_ref = trips_ref.where(
+                filter=FieldFilter("end_time", ">=", self.export_history[-1])
+            )
+
+        trips_ref = trips_ref.stream()
+
         trips = [Trip.from_firestore_doc(trip_doc) for trip_doc in trips_ref]
         return [_ for _ in trips if _ is not None]
 
@@ -325,7 +333,7 @@ def start(user: User, message: telebot.types.Message) -> None:
     bot.send_message(
         message.chat.id,
         f"喂，{user.first_name} 師傅！搵食工具準備好未？\n開工 /start_shift\n收工 "
-        "/end_shift\n睇返之前啲job /get_trips",
+        "/end_shift\n睇返最近嘅job /get_trips\n睇晒全部記錄 /get_all_trips",
         reply_markup=telebot.types.ReplyKeyboardRemove(),
     )
 
@@ -599,17 +607,19 @@ def process_fare_input(
         )
 
 
-def get_trips(user: User, message: telebot.types.Message) -> None:
+def get_trips(
+    user: User, message: telebot.types.Message, skip_exported: bool = False
+) -> None:
+    """Retrieves trips associated with this user from Firestore, optionally skipping exported trips."""
 
     hk_tz = pytz.timezone("Asia/Hong_Kong")
-    trips = user.get_all_trips()
+    trips = user.get_all_trips(skip_exported=skip_exported)
 
     if not trips:
-        bot.send_message(message.chat.id, "You have no past trips.")
+        bot.send_message(message.chat.id, "你未有最近嘅記錄。")
         return
 
     trips.sort(key=lambda trip: trip.start_time, reverse=True)
-    # Generate CSV data
     csv_data = StringIO()
     writer = csv.writer(csv_data)
     writer.writerow(
@@ -653,6 +663,13 @@ def get_trips(user: User, message: telebot.types.Message) -> None:
     file = telebot.types.InputFile(csv_data, file_name="trips.csv")
     bot.send_document(message.chat.id, file)
 
+    # Append the current export date to User.export_history
+    current_export_time = datetime.now(timezone.utc)
+    user.export_history.append(current_export_time)
+    user.update_in_firestore()
+
+    bot.send_message(message.chat.id, "記錄已成功匯出。")
+
 
 @app.route("/handle_telegram_update", methods=["POST"])
 def handle_telegram_update(request):
@@ -683,11 +700,16 @@ def handle_telegram_update(request):
                         f"`/end_shift` received from user {user.user_id} {user.first_name}"
                     )
                     end_shift(user=user, message=update.message)
+                case "/get_all_trips":
+                    logging.info(
+                        f"`/get_all_trips` received from user {user.user_id} {user.first_name}"
+                    )
+                    get_trips(user=user, message=update.message)
                 case "/get_trips":
                     logging.info(
                         f"`/get_trips` received from user {user.user_id} {user.first_name}"
                     )
-                    get_trips(user=user, message=update.message)
+                    get_trips(user=user, message=update.message, skip_exported=True)
                 case _:
                     logging.info(
                         f"Text received from user {user.user_id} {user.first_name}"
