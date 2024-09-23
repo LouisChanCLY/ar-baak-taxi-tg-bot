@@ -179,6 +179,7 @@ class User(BaseModel):
     total_fare: float = 0.0
     await_location_input: bool = False
     await_fare_input: bool = False
+    export_history: List[datetime] = []
 
     @classmethod
     def from_firestore_doc(cls, doc: DocumentSnapshot) -> Optional[Self]:
