@@ -75,7 +75,6 @@ class Trip(BaseModel):
     end_address: Optional[str] = None
     end_time: Optional[datetime] = None
     fare: Optional[float] = None
-    exported: bool = False
 
     @field_validator("fare")
     def validate_fare(cls, value: float):
@@ -230,8 +229,10 @@ class User(BaseModel):
             filter=FieldFilter("user_id", "==", str(self.user_id))
         )
 
-        if skip_exported:
-            trips_ref = trips_ref.where(filter=FieldFilter("exported", "==", False))
+        if skip_exported and self.export_history:
+            trips_ref = trips_ref.where(
+                filter=FieldFilter("end_time", ">=", self.export_history[-1])
+            )
 
         trips_ref = trips_ref.stream()
 
@@ -609,6 +610,7 @@ def process_fare_input(
 def get_trips(
     user: User, message: telebot.types.Message, skip_exported: bool = False
 ) -> None:
+    """Retrieves trips associated with this user from Firestore, optionally skipping exported trips."""
 
     hk_tz = pytz.timezone("Asia/Hong_Kong")
     trips = user.get_all_trips(skip_exported=skip_exported)
@@ -618,7 +620,6 @@ def get_trips(
         return
 
     trips.sort(key=lambda trip: trip.start_time, reverse=True)
-    # Generate CSV data
     csv_data = StringIO()
     writer = csv.writer(csv_data)
     writer.writerow(
@@ -661,6 +662,13 @@ def get_trips(
     csv_data.seek(0)
     file = telebot.types.InputFile(csv_data, file_name="trips.csv")
     bot.send_document(message.chat.id, file)
+
+    # Append the current export date to User.export_history
+    current_export_time = datetime.now(timezone.utc)
+    user.export_history.append(current_export_time)
+    user.update_in_firestore()
+
+    bot.send_message(message.chat.id, "記錄已成功匯出。")
 
 
 @app.route("/handle_telegram_update", methods=["POST"])
