@@ -333,7 +333,7 @@ def start(user: User, message: telebot.types.Message) -> None:
     bot.send_message(
         message.chat.id,
         f"喂，{user.first_name} 師傅！搵食工具準備好未？\n開工 /start_shift\n收工 "
-        "/end_shift\n睇返之前啲job /get_trips",
+        "/end_shift\n睇返最近嘅job /get_trips\n睇晒全部記錄 /get_all_trips",
         reply_markup=telebot.types.ReplyKeyboardRemove(),
     )
 
