@@ -52,7 +52,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 commands = [
     telebot.types.BotCommand("/start_shift", "開工"),
     telebot.types.BotCommand("/end_shift", "收工"),
-    telebot.types.BotCommand("/get_trips", "睇返之前嘅記錄"),
+    telebot.types.BotCommand("/get_trips", "睇返最近嘅記錄"),
+    telebot.types.BotCommand("/get_all_trips", "睇晒全部記錄"),
 ]
 bot.set_my_commands(commands)
 
@@ -74,6 +75,7 @@ class Trip(BaseModel):
     end_address: Optional[str] = None
     end_time: Optional[datetime] = None
     fare: Optional[float] = None
+    exported: bool = False
 
     @field_validator("fare")
     def validate_fare(cls, value: float):
@@ -221,13 +223,17 @@ class User(BaseModel):
         trips = [Trip.from_firestore_doc(trip_doc) for trip_doc in trips_ref]
         return [_ for _ in trips if _ is not None]
 
-    def get_all_trips(self) -> List[Trip]:
+    def get_all_trips(self, skip_exported: bool = False) -> List[Trip]:
         """Retrieves all trips associated with this user from Firestore."""
-        trips_ref = (
-            db.collection(TRIP_COLLECTION_NAME)
-            .where(filter=FieldFilter("user_id", "==", str(self.user_id)))
-            .stream()
+        trips_ref = db.collection(TRIP_COLLECTION_NAME).where(
+            filter=FieldFilter("user_id", "==", str(self.user_id))
         )
+
+        if skip_exported:
+            trips_ref = trips_ref.where(filter=FieldFilter("exported", "==", False))
+
+        trips_ref = trips_ref.stream()
+
         trips = [Trip.from_firestore_doc(trip_doc) for trip_doc in trips_ref]
         return [_ for _ in trips if _ is not None]
 
@@ -599,13 +605,15 @@ def process_fare_input(
         )
 
 
-def get_trips(user: User, message: telebot.types.Message) -> None:
+def get_trips(
+    user: User, message: telebot.types.Message, skip_exported: bool = False
+) -> None:
 
     hk_tz = pytz.timezone("Asia/Hong_Kong")
-    trips = user.get_all_trips()
+    trips = user.get_all_trips(skip_exported=skip_exported)
 
     if not trips:
-        bot.send_message(message.chat.id, "You have no past trips.")
+        bot.send_message(message.chat.id, "你未有最近嘅記錄。")
         return
 
     trips.sort(key=lambda trip: trip.start_time, reverse=True)
@@ -683,11 +691,16 @@ def handle_telegram_update(request):
                         f"`/end_shift` received from user {user.user_id} {user.first_name}"
                     )
                     end_shift(user=user, message=update.message)
+                case "/get_all_trips":
+                    logging.info(
+                        f"`/get_all_trips` received from user {user.user_id} {user.first_name}"
+                    )
+                    get_trips(user=user, message=update.message)
                 case "/get_trips":
                     logging.info(
                         f"`/get_trips` received from user {user.user_id} {user.first_name}"
                     )
-                    get_trips(user=user, message=update.message)
+                    get_trips(user=user, message=update.message, skip_exported=True)
                 case _:
                     logging.info(
                         f"Text received from user {user.user_id} {user.first_name}"
